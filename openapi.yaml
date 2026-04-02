@@ -1,0 +1,223 @@
+openapi: 3.0.3
+info:
+  title: Node.js PostgreSQL Auth API
+  description: RESTful authentication API built with Express.js and PostgreSQL (Sequelize ORM). Provides user registration with email verification and JWT-based login.
+  version: 1.0.0
+  contact:
+    name: Yousef Salah
+
+servers:
+  - url: http://localhost:5000
+    description: Local development server
+
+paths:
+  /auth/signup:
+    post:
+      tags:
+        - Auth
+      summary: Register a new user
+      description: Creates a new user account and sends a verification email to the provided email address.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SignupRequest"
+            example:
+              username: johndoe
+              email: johndoe@example.com
+              password: secret123
+      responses:
+        "201":
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                type: string
+              example: "User registered successfully. Please check your email to verify your account."
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationError"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /auth/login:
+    post:
+      tags:
+        - Auth
+      summary: Login with email and password
+      description: Authenticates a user and returns a JWT token. The user must have a verified email to log in.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+            example:
+              email: johndoe@example.com
+              password: secret123
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+        "400":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                userNotFound:
+                  summary: User does not exist
+                  value:
+                    error: "this user is not exist"
+                wrongPassword:
+                  summary: Wrong password
+                  value:
+                    error: "wrong password"
+        "404":
+          description: Email not verified
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "please verify your email to login"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /auth/verify-email:
+    get:
+      tags:
+        - Auth
+      summary: Verify user email
+      description: Verifies the user's email address using the token sent via email. After verification, the user can log in.
+      parameters:
+        - name: token
+          in: query
+          required: true
+          description: Email verification token
+          schema:
+            type: string
+          example: a1b2c3d4e5f6...
+      responses:
+        "200":
+          description: Email verified successfully
+          content:
+            application/json:
+              schema:
+                type: string
+              example: "✅ email verified successfuly"
+        "404":
+          description: Invalid or expired token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Invalid or expired token"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+components:
+  schemas:
+    SignupRequest:
+      type: object
+      required:
+        - username
+        - email
+        - password
+      properties:
+        username:
+          type: string
+          description: Display name for the user
+          example: johndoe
+        email:
+          type: string
+          format: email
+          description: Valid email address
+          example: johndoe@example.com
+        password:
+          type: string
+          format: password
+          minLength: 6
+          description: Password (minimum 6 characters)
+          example: secret123
+
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          example: johndoe@example.com
+        password:
+          type: string
+          format: password
+          example: secret123
+
+    LoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          description: JWT token (expires in 1 hour)
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+          example: Internal Server Error
+
+    ValidationError:
+      type: object
+      properties:
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              msg:
+                type: string
+                example: "valid email is required"
+              path:
+                type: string
+                example: email
+              location:
+                type: string
+                example: body
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token returned from the login endpoint
+
+tags:
+  - name: Auth
+    description: User authentication and email verification

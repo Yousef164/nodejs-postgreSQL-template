@@ -32,7 +32,8 @@ jest.unstable_mockModule("crypto", () => ({
   },
 }));
 
-const { default: authService } = await import("../../src/modules/auth/auth.service.js");
+const { default: authService } =
+  await import("../../src/modules/auth/auth.service.js");
 
 describe("authService unit tests", () => {
   beforeEach(() => {
@@ -66,7 +67,7 @@ describe("authService unit tests", () => {
     expect(verifyEmailMock).toHaveBeenCalledWith(
       "yousef",
       "yousef@example.com",
-      "email-token"
+      "email-token",
     );
     expect(result).toEqual({
       status: 201,
@@ -110,7 +111,7 @@ describe("authService unit tests", () => {
       authService.login({
         email: "missing@example.com",
         password: "123456",
-      })
+      }),
     ).rejects.toEqual({
       status: 400,
       message: "this user is not exist",
@@ -132,5 +133,54 @@ describe("authService unit tests", () => {
     });
     expect(save).toHaveBeenCalled();
     expect(result.status).toBe(200);
+  });
+
+  it("throws when login password is incorrect", async () => {
+    authModelMock.findOne.mockResolvedValue({
+      password: "stored-hash",
+      emailVerified: true,
+      email: "yousef@example.com",
+      _id: 7,
+    });
+    bcryptMock.compare.mockResolvedValue(false);
+
+    await expect(
+      authService.login({
+        email: "yousef@example.com",
+        password: "wrong-password",
+      }),
+    ).rejects.toEqual({
+      status: 400,
+      message: "wrong password",
+    });
+  });
+
+  it("throws when email is not verified during login", async () => {
+    authModelMock.findOne.mockResolvedValue({
+      password: "stored-hash",
+      emailVerified: false,
+      email: "yousef@example.com",
+      _id: 7,
+    });
+    bcryptMock.compare.mockResolvedValue(true);
+
+    await expect(
+      authService.login({
+        email: "yousef@example.com",
+        password: "123456",
+      }),
+    ).rejects.toEqual({
+      status: 404,
+      message: "please verify your email to login",
+    });
+  });
+
+  it("throws when verifyEmail token is invalid", async () => {
+    authModelMock.findOne.mockResolvedValue(null);
+
+    await expect(authService.verifyEmail("invalid-token")).rejects.toEqual({
+      status: 404,
+      message: "Invalid or expired token",
+    });
   });
 });
